@@ -20,16 +20,18 @@ DEFAULT_LGD = 0.45
 DEFAULT_CCF = 0.5
 DEFAULT_HORIZON_YEARS = 1.0
 
-RATING_SPREADS = {
-    "AAA": 0.0040,
-    "AA": 0.0060,
-    "A": 0.0090,
-    "BBB": 0.0150,
-    "BB": 0.0300,
-    "B": 0.0500,
-    "CCC": 0.0800,
-    "D": 1.0000,
+RATING_SPREAD_BPS = {
+    "AAA": 60.0,
+    "AA": 85.0,
+    "A": 120.0,
+    "BBB": 180.0,
+    "BB": 350.0,
+    "B": 600.0,
+    "CCC": 950.0,
+    "D": 10_000.0,
 }
+
+RATING_SPREADS = {rating: spread_bps / 10_000.0 for rating, spread_bps in RATING_SPREAD_BPS.items()}
 
 RATING_BUCKET_MAP = {
     "AAA": "AAA-A",

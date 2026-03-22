@@ -28,6 +28,13 @@ def test_default_value_is_below_performing_value() -> None:
     assert default_value < performing_value
 
 
+def test_downgrade_reduces_value() -> None:
+    exposure = _loan_exposure()
+    investment_grade_value = value_loan(exposure, target_rating="BBB")
+    high_yield_value = value_loan(exposure, target_rating="BB")
+    assert high_yield_value < investment_grade_value
+
+
 def test_off_balance_uses_ccf_adjusted_notional() -> None:
     exposure = Exposure(
         exposure_id="EXP-0200",

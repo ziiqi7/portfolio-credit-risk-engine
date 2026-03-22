@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from src.metrics import breakdown_by_instrument_type, breakdown_by_rating_bucket, summarize_distribution
+from src.config import RATING_BUCKET_MAP
 
 
 def build_summary_tables(scenario_results: pd.DataFrame, exposure_results: pd.DataFrame) -> dict[str, pd.DataFrame | dict[str, float]]:
@@ -23,9 +24,81 @@ def build_summary_tables(scenario_results: pd.DataFrame, exposure_results: pd.Da
 
     return {
         "metrics": summarize_distribution(scenario_results),
+        "portfolio_summary": build_portfolio_summary_table(exposure_results),
+        "top_obligors": top_obligor_concentration_table(exposure_results),
+        "exposure_by_instrument": exposure_breakdown_table(exposure_results, "instrument_type"),
+        "exposure_by_rating_bucket": exposure_by_rating_bucket_table(exposure_results),
+        "exposure_by_sector": exposure_breakdown_table(exposure_results, "sector"),
+        "exposure_by_currency": exposure_breakdown_table(exposure_results, "currency"),
         "by_instrument": breakdown_by_instrument_type(exposure_results),
         "by_rating_bucket": breakdown_by_rating_bucket(exposure_results),
     }
+
+
+def build_portfolio_summary_table(exposure_results: pd.DataFrame) -> pd.DataFrame:
+    """Build a single-row portfolio summary table using current values."""
+
+    total_exposure = float(exposure_results["current_value"].sum())
+    obligor_totals = exposure_results.groupby("obligor_id", as_index=False)["current_value"].sum()
+    number_of_obligors = int(obligor_totals["obligor_id"].nunique())
+    number_of_facilities = int(len(exposure_results))
+    top_10_concentration_pct = float(obligor_totals["current_value"].nlargest(10).sum() / total_exposure * 100.0)
+
+    return pd.DataFrame(
+        [
+            {
+                "total_exposure": total_exposure,
+                "number_of_obligors": number_of_obligors,
+                "number_of_facilities": number_of_facilities,
+                "avg_exposure_per_obligor": total_exposure / number_of_obligors,
+                "top_10_obligors_concentration_pct": top_10_concentration_pct,
+            }
+        ]
+    )
+
+
+def top_obligor_concentration_table(exposure_results: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
+    """Build a top-obligor concentration table."""
+
+    total_exposure = float(exposure_results["current_value"].sum())
+    table = (
+        exposure_results.groupby("obligor_id", as_index=False)["current_value"]
+        .sum()
+        .rename(columns={"current_value": "total_exposure"})
+        .sort_values("total_exposure", ascending=False)
+        .head(top_n)
+    )
+    table["pct_total"] = table["total_exposure"] / total_exposure * 100.0
+    return table
+
+
+def exposure_breakdown_table(exposure_results: pd.DataFrame, dimension: str) -> pd.DataFrame:
+    """Aggregate exposure by a selected portfolio dimension."""
+
+    total_exposure = float(exposure_results["current_value"].sum())
+    table = (
+        exposure_results.groupby(dimension, as_index=False)["current_value"]
+        .sum()
+        .rename(columns={dimension: "bucket", "current_value": "total_exposure"})
+    )
+    table["pct_total"] = table["total_exposure"] / total_exposure * 100.0
+    return table.sort_values("total_exposure", ascending=False)
+
+
+def exposure_by_rating_bucket_table(exposure_results: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate exposure by broad rating bucket in presentation order."""
+
+    table = exposure_results.copy()
+    table["rating_bucket"] = table["rating"].map(RATING_BUCKET_MAP).fillna("Other")
+    grouped = (
+        table.groupby("rating_bucket", as_index=False)["current_value"]
+        .sum()
+        .rename(columns={"current_value": "total_exposure"})
+    )
+    total_exposure = float(grouped["total_exposure"].sum())
+    grouped["pct_total"] = grouped["total_exposure"] / total_exposure * 100.0
+    order = pd.Categorical(grouped["rating_bucket"], categories=["AAA-A", "BBB", "BB-B", "CCC/D", "Other"], ordered=True)
+    return grouped.assign(_order=order).sort_values("_order").drop(columns="_order")
 
 
 def plot_loss_distribution(

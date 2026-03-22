@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import math
 
-from src.config import DEFAULT_CCF, DEFAULT_LGD, DEFAULT_RISK_FREE_RATE, RATING_SPREADS
+from src.config import DEFAULT_CCF, DEFAULT_LGD, DEFAULT_RISK_FREE_RATE, RATING_SPREAD_BPS
 from src.schema import Exposure
 
 
 def _discount_factor(rate: float, years: float) -> float:
     return 1.0 / ((1.0 + rate) ** max(years, 0.0))
+
+
+def credit_spread_rate(target_rating: str) -> float:
+    """Return the annualized credit spread for a rating, expressed as a decimal."""
+
+    return RATING_SPREAD_BPS[target_rating] / 10_000.0
 
 
 def _effective_lgd(exposure: Exposure, base_lgd: float) -> float:
@@ -56,7 +62,7 @@ def _value_from_rating(
         recovery_value = effective_balance * (1.0 - _effective_lgd(exposure, base_lgd))
         return recovery_value * _discount_factor(risk_free_rate, horizon_years)
 
-    discount_rate = risk_free_rate + RATING_SPREADS[target_rating]
+    discount_rate = risk_free_rate + credit_spread_rate(target_rating)
     if horizon_years <= 0.0:
         return _bullet_market_value(
             notional=effective_balance,

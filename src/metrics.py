@@ -33,6 +33,17 @@ def calculate_expected_shortfall(losses: pd.Series | np.ndarray, confidence_leve
     return float(tail.mean())
 
 
+def calculate_skewness(values: pd.Series | np.ndarray) -> float:
+    """Calculate the sample skewness using the third standardized moment."""
+
+    array = np.asarray(values, dtype=float)
+    std_dev = float(array.std())
+    if std_dev == 0.0:
+        return 0.0
+    centered = array - array.mean()
+    return float(np.mean((centered / std_dev) ** 3))
+
+
 def summarize_distribution(scenario_results: pd.DataFrame) -> dict[str, float]:
     """Compute baseline portfolio distribution metrics."""
 
@@ -41,6 +52,11 @@ def summarize_distribution(scenario_results: pd.DataFrame) -> dict[str, float]:
     return {
         "mean_pnl": float(pnls.mean()),
         "mean_loss": float(losses.mean()),
+        "loss_std": float(losses.std()),
+        "loss_min": float(losses.min()),
+        "loss_max": float(losses.max()),
+        "loss_skewness": calculate_skewness(losses),
+        "positive_pnl_pct": float(np.mean(pnls > 0.0) * 100.0),
         "var_95": calculate_var(losses, 0.95),
         "var_99": calculate_var(losses, 0.99),
         "var_999": calculate_var(losses, 0.999),

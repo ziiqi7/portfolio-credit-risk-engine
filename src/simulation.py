@@ -75,6 +75,7 @@ def simulate_portfolio(
     base_lgd: float = DEFAULT_LGD,
     ccf: float = DEFAULT_CCF,
     horizon_years: float = DEFAULT_HORIZON_YEARS,
+    allow_positive_pnl: bool = True,
     transition_sampler: TransitionSampler | None = None,
 ) -> SimulationResult:
     """Simulate portfolio loss and PnL distribution under rating migration."""
@@ -100,7 +101,7 @@ def simulate_portfolio(
             )
 
     pnl_matrix = scenario_values - current_values
-    loss_matrix = -pnl_matrix
+    loss_matrix = -pnl_matrix if allow_positive_pnl else np.maximum(-pnl_matrix, 0.0)
 
     scenario_results = pd.DataFrame(
         {
