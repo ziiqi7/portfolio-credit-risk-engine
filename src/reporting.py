@@ -30,9 +30,35 @@ def build_summary_tables(scenario_results: pd.DataFrame, exposure_results: pd.Da
         "exposure_by_rating_bucket": exposure_by_rating_bucket_table(exposure_results),
         "exposure_by_sector": exposure_breakdown_table(exposure_results, "sector"),
         "exposure_by_currency": exposure_breakdown_table(exposure_results, "currency"),
+        "exposure_by_issuer_type": exposure_breakdown_table(exposure_results, "issuer_type"),
+        "exposure_by_instrument_subtype": exposure_breakdown_table(exposure_results, "instrument_subtype"),
+        "exposure_by_seniority": exposure_breakdown_table(exposure_results, "seniority"),
         "by_instrument": breakdown_by_instrument_type(exposure_results),
         "by_rating_bucket": breakdown_by_rating_bucket(exposure_results),
     }
+
+
+def build_mode_comparison_table(results_by_mode: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """Summarize comparable scenario outputs across simulation modes."""
+
+    rows: list[dict[str, float | str]] = []
+    for mode_name, scenario_results in results_by_mode.items():
+        summary = summarize_distribution(scenario_results)
+        rows.append(
+            {
+                "mode": mode_name,
+                "mean_loss": summary["mean_loss"],
+                "loss_std": summary["loss_std"],
+                "var_95": summary["var_95"],
+                "var_99": summary["var_99"],
+                "es_99": summary["es_99"],
+                "positive_pnl_pct": summary["positive_pnl_pct"],
+                "mean_default_count": summary["mean_default_count"],
+                "p95_default_count": summary["p95_default_count"],
+                "p99_default_count": summary["p99_default_count"],
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def build_portfolio_summary_table(exposure_results: pd.DataFrame) -> pd.DataFrame:
@@ -101,10 +127,17 @@ def exposure_by_rating_bucket_table(exposure_results: pd.DataFrame) -> pd.DataFr
     return grouped.assign(_order=order).sort_values("_order").drop(columns="_order")
 
 
+def tail_loss_attribution_table(diagnostics: dict[str, pd.DataFrame], key: str) -> pd.DataFrame:
+    """Return a tail attribution table by key if present."""
+
+    return diagnostics.get(key, pd.DataFrame())
+
+
 def plot_loss_distribution(
     scenario_results: pd.DataFrame,
     output_path: Path | str,
     title: str = "Simulated Portfolio Loss Distribution",
+    subtitle: str | None = None,
 ) -> Path:
     """Save a simple histogram of simulated portfolio losses."""
 
@@ -116,9 +149,14 @@ def plot_loss_distribution(
 
     plt.figure(figsize=(10, 6))
     plt.hist(losses, bins=40, color="#245c7c", edgecolor="white", alpha=0.85)
+    if float(losses.min()) <= 0.0 <= float(losses.max()):
+        plt.axvline(0.0, color="#3d405b", linestyle=":", linewidth=1.2, label="Break-even")
     plt.axvline(summary["var_95"], color="#e07a24", linestyle="--", linewidth=1.5, label="VaR 95%")
     plt.axvline(summary["var_99"], color="#9b2226", linestyle="--", linewidth=1.5, label="VaR 99%")
+    plt.axvline(summary["es_99"], color="#6c757d", linestyle="-.", linewidth=1.3, label="ES 99%")
     plt.title(title)
+    if subtitle:
+        plt.suptitle(subtitle, fontsize=10, y=0.96)
     plt.xlabel("Portfolio loss")
     plt.ylabel("Scenario count")
     plt.legend()

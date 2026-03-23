@@ -4,7 +4,18 @@ from __future__ import annotations
 
 import math
 
-from src.config import DEFAULT_CCF, DEFAULT_LGD, DEFAULT_RISK_FREE_RATE, RATING_SPREAD_BPS
+from src.config import (
+    DEFAULT_CCF,
+    DEFAULT_LGD,
+    DEFAULT_RISK_FREE_RATE,
+    INSTRUMENT_SUBTYPE_LGD_ADJUSTMENT,
+    INSTRUMENT_SUBTYPE_SPREAD_BPS_ADJUSTMENT,
+    ISSUER_LGD_ADJUSTMENT,
+    ISSUER_SPREAD_BPS_ADJUSTMENT,
+    RATING_SPREAD_BPS,
+    SENIORITY_LGD_ADJUSTMENT,
+    SENIORITY_SPREAD_BPS_ADJUSTMENT,
+)
 from src.schema import Exposure
 
 
@@ -12,19 +23,37 @@ def _discount_factor(rate: float, years: float) -> float:
     return 1.0 / ((1.0 + rate) ** max(years, 0.0))
 
 
-def credit_spread_rate(target_rating: str) -> float:
+def credit_spread_bps(exposure: Exposure, target_rating: str) -> float:
+    """Return the annualized credit spread in basis points for a migrated state."""
+
+    spread_bps = (
+        RATING_SPREAD_BPS[target_rating]
+        + ISSUER_SPREAD_BPS_ADJUSTMENT[exposure.issuer_type]
+        + INSTRUMENT_SUBTYPE_SPREAD_BPS_ADJUSTMENT[exposure.instrument_subtype]
+        + SENIORITY_SPREAD_BPS_ADJUSTMENT[exposure.seniority]
+    )
+    return float(max(spread_bps, 10.0))
+
+
+def credit_spread_rate(exposure: Exposure, target_rating: str, spread_shock_bps: float = 0.0) -> float:
     """Return the annualized credit spread for a rating, expressed as a decimal."""
 
-    return RATING_SPREAD_BPS[target_rating] / 10_000.0
+    shocked_spread_bps = max(credit_spread_bps(exposure, target_rating) + spread_shock_bps, 5.0)
+    return shocked_spread_bps / 10_000.0
 
 
 def _effective_lgd(exposure: Exposure, base_lgd: float) -> float:
-    lgd = base_lgd
+    lgd = (
+        base_lgd
+        + ISSUER_LGD_ADJUSTMENT[exposure.issuer_type]
+        + INSTRUMENT_SUBTYPE_LGD_ADJUSTMENT[exposure.instrument_subtype]
+        + SENIORITY_LGD_ADJUSTMENT[exposure.seniority]
+    )
     if exposure.guaranteed:
         lgd *= 0.80
     if exposure.collateral_type:
         lgd *= 0.85
-    return min(max(lgd, 0.0), 0.95)
+    return min(max(lgd, 0.05), 0.95)
 
 
 def _coupon_amount(exposure: Exposure, notional: float) -> float:
@@ -57,12 +86,13 @@ def _value_from_rating(
     base_lgd: float,
     horizon_years: float,
     risk_free_rate: float,
+    spread_shock_bps: float = 0.0,
 ) -> float:
     if target_rating == "D":
         recovery_value = effective_balance * (1.0 - _effective_lgd(exposure, base_lgd))
         return recovery_value * _discount_factor(risk_free_rate, horizon_years)
 
-    discount_rate = risk_free_rate + credit_spread_rate(target_rating)
+    discount_rate = risk_free_rate + credit_spread_rate(exposure, target_rating, spread_shock_bps=spread_shock_bps)
     if horizon_years <= 0.0:
         return _bullet_market_value(
             notional=effective_balance,
@@ -94,6 +124,7 @@ def value_loan(
     base_lgd: float = DEFAULT_LGD,
     horizon_years: float = 0.0,
     risk_free_rate: float = DEFAULT_RISK_FREE_RATE,
+    spread_shock_bps: float = 0.0,
 ) -> float:
     """Value a loan under a target migrated rating."""
 
@@ -104,6 +135,7 @@ def value_loan(
         base_lgd=base_lgd,
         horizon_years=horizon_years,
         risk_free_rate=risk_free_rate,
+        spread_shock_bps=spread_shock_bps,
     )
 
 
@@ -113,6 +145,7 @@ def value_bond(
     base_lgd: float = DEFAULT_LGD,
     horizon_years: float = 0.0,
     risk_free_rate: float = DEFAULT_RISK_FREE_RATE,
+    spread_shock_bps: float = 0.0,
 ) -> float:
     """Value a bond under a target migrated rating."""
 
@@ -123,6 +156,7 @@ def value_bond(
         base_lgd=base_lgd,
         horizon_years=horizon_years,
         risk_free_rate=risk_free_rate,
+        spread_shock_bps=spread_shock_bps,
     )
 
 
@@ -133,6 +167,7 @@ def value_off_balance(
     ccf: float = DEFAULT_CCF,
     horizon_years: float = 0.0,
     risk_free_rate: float = DEFAULT_RISK_FREE_RATE,
+    spread_shock_bps: float = 0.0,
 ) -> float:
     """Value an off-balance-sheet exposure using CCF-adjusted effective balance."""
 
@@ -144,6 +179,7 @@ def value_off_balance(
         base_lgd=base_lgd,
         horizon_years=horizon_years,
         risk_free_rate=risk_free_rate,
+        spread_shock_bps=spread_shock_bps,
     )
 
 
@@ -154,6 +190,7 @@ def value_exposure(
     ccf: float = DEFAULT_CCF,
     horizon_years: float = 0.0,
     risk_free_rate: float = DEFAULT_RISK_FREE_RATE,
+    spread_shock_bps: float = 0.0,
 ) -> float:
     """Dispatch valuation based on exposure instrument type."""
 
@@ -164,6 +201,7 @@ def value_exposure(
             base_lgd=base_lgd,
             horizon_years=horizon_years,
             risk_free_rate=risk_free_rate,
+            spread_shock_bps=spread_shock_bps,
         )
     if exposure.instrument_type == "bond":
         return value_bond(
@@ -172,6 +210,7 @@ def value_exposure(
             base_lgd=base_lgd,
             horizon_years=horizon_years,
             risk_free_rate=risk_free_rate,
+            spread_shock_bps=spread_shock_bps,
         )
     if exposure.instrument_type == "off_balance":
         return value_off_balance(
@@ -181,5 +220,6 @@ def value_exposure(
             ccf=ccf,
             horizon_years=horizon_years,
             risk_free_rate=risk_free_rate,
+            spread_shock_bps=spread_shock_bps,
         )
     raise ValueError(f"Unsupported instrument_type: {exposure.instrument_type}")
