@@ -156,7 +156,7 @@ def stress_transition_matrix(
         if row_name == "D":
             continue
 
-        row = stressed.loc[row_name].to_numpy(dtype=float)
+        row = stressed.loc[row_name].to_numpy(dtype=float).copy()
         diagonal_shift = min(row[row_position] * downgrade_bias, row[row_position])
         row[row_position] -= diagonal_shift
 

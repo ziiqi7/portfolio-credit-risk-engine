@@ -93,7 +93,8 @@ portfolio-credit-risk-engine/
 │   └── 02_correlation_roadmap.ipynb
 ├── scripts/
 │   ├── generate_synthetic_portfolio.py
-│   └── run_demo.py
+│   ├── run_demo.py
+│   └── run_experiments.py
 ├── src/
 │   ├── config.py
 │   ├── schema.py
@@ -165,6 +166,12 @@ Compare all simulation modes on the same portfolio, seed, and stress setup:
 python scripts/run_demo.py --simulation-mode multi_factor --stress regime --scenarios 5000 --seed 42 --compare-modes
 ```
 
+Run the Python batch experiment pipeline:
+
+```bash
+python scripts/run_experiments.py
+```
+
 The demo will:
 
 - load the sample synthetic portfolio
@@ -176,6 +183,33 @@ The demo will:
 - print default, downgrade, regime, and tail diagnostics
 - save a loss distribution plot to `outputs/demo_loss_distribution.png`
 - optionally export scenario-level results
+
+The preferred orchestration layer for batch runs is now Python via `scripts/run_experiments.py` rather than a shell wrapper.
+
+## Running Batch Experiments
+
+`python scripts/run_experiments.py` runs a fixed public batch of experiments:
+
+- `independent` with `stress=none`
+- `one_factor` with `stress=none`
+- `multi_factor` with `stress=none`
+- `multi_factor` with `stress=regime`
+- `multi_factor` with `stress=regime --compare-modes`
+
+It writes:
+
+- per-run logs to `outputs/logs/`
+- per-run scenario CSVs to `outputs/`
+- per-run loss plots to `outputs/`
+- a comparison chart to `outputs/comparison_distribution.png`
+
+The standard log files are:
+
+- `outputs/logs/independent.log`
+- `outputs/logs/one_factor.log`
+- `outputs/logs/multi_factor.log`
+- `outputs/logs/multi_factor_regime.log`
+- `outputs/logs/comparison.log`
 
 ## Example outputs
 

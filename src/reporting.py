@@ -166,6 +166,64 @@ def plot_loss_distribution(
     return target_path
 
 
+def plot_mode_comparison_distribution(
+    results_by_mode: dict[str, pd.DataFrame],
+    output_path: Path | str,
+    title: str = "Loss Distribution Comparison",
+    subtitle: str | None = None,
+) -> Path:
+    """Save an overlaid comparison chart for multiple loss distributions."""
+
+    target_path = Path(output_path)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    plt.figure(figsize=(11, 6.5))
+    color_map = {
+        "independent": "#245c7c",
+        "one_factor": "#e07a24",
+        "multi_factor": "#9b2226",
+        "multi_factor_regime": "#3d405b",
+    }
+
+    all_losses: list[float] = []
+    for mode_name, scenario_results in results_by_mode.items():
+        summary = summarize_distribution(scenario_results)
+        losses = scenario_results["total_loss"].to_numpy(dtype=float)
+        all_losses.extend(losses.tolist())
+        color = color_map.get(mode_name, None)
+        plt.hist(
+            losses,
+            bins=50,
+            density=True,
+            histtype="step",
+            linewidth=1.6,
+            color=color,
+            label=f"{mode_name} density",
+        )
+        plt.axvline(
+            summary["var_99"],
+            color=color,
+            linestyle="--",
+            linewidth=1.2,
+            alpha=0.9,
+            label=f"{mode_name} VaR 99%",
+        )
+
+    if all_losses and min(all_losses) <= 0.0 <= max(all_losses):
+        plt.axvline(0.0, color="#6c757d", linestyle=":", linewidth=1.1, label="Break-even")
+
+    plt.title(title)
+    if subtitle:
+        plt.suptitle(subtitle, fontsize=10, y=0.96)
+    plt.xlabel("Loss")
+    plt.ylabel("Density")
+    plt.legend(fontsize=8, ncol=2)
+    plt.tight_layout()
+    plt.savefig(target_path, dpi=180)
+    plt.close()
+    return target_path
+
+
 def export_scenario_results(scenario_results: pd.DataFrame, output_path: Path | str) -> Path:
     """Export scenario-level simulation results to CSV."""
 
