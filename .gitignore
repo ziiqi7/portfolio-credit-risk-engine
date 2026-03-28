@@ -7,3 +7,5 @@ __pycache__/
 .cache/
 .mpl-cache/
 outputs/
+scripts/git_push.py
+scripts/run_and_push.py
