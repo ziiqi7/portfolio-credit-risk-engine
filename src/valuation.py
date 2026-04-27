@@ -88,6 +88,16 @@ def _value_from_rating(
     risk_free_rate: float,
     spread_shock_bps: float = 0.0,
 ) -> float:
+    """Value an exposure under a target migrated rating.
+
+    Coupon income within the horizon is treated as accrued linearly
+    and discounted at the horizon spread. This intentionally ignores
+    intra-horizon reinvestment and per-coupon discounting, in line
+    with the migration-based 1Y horizon focus of this engine.
+    For longer horizons or coupon-sensitive analysis, replace with
+    a per-coupon DCF.
+    """
+
     if target_rating == "D":
         recovery_value = effective_balance * (1.0 - _effective_lgd(exposure, base_lgd))
         return recovery_value * _discount_factor(risk_free_rate, horizon_years)

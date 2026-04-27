@@ -117,9 +117,9 @@ class MultiFactorSpec:
 def build_rating_thresholds(transition_matrix: pd.DataFrame) -> dict[str, list[tuple[str, float]]]:
     """Convert transition probabilities into standard-normal thresholds.
 
-    Thresholds are ordered from worst state to best state so they can be used
-    with latent credit variables where lower draws correspond to weaker
-    credit outcomes.
+    Convention: lower latent values map to weaker credit outcomes.
+    Thresholds are returned ordered from worst state (D) to best non-default
+    state, so they can be scanned ascending against a latent draw.
     """
 
     normal = NormalDist()
@@ -157,7 +157,14 @@ def map_latent_to_rating_state(
     thresholds: list[tuple[str, float]],
     fallback_state: str,
 ) -> str:
-    """Map a latent standard-normal draw into a rating state."""
+    """Map a latent standard-normal draw into a migrated rating state.
+
+    Convention: lower latent values map to weaker credit outcomes.
+    Thresholds must be ordered worst-state-first; the first threshold
+    the latent value falls under defines the migrated state. If the
+    latent draw exceeds all thresholds, the exposure stays in the
+    best-state fallback.
+    """
 
     for state, threshold in thresholds:
         if latent_value <= threshold:
