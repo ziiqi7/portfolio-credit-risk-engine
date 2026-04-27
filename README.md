@@ -271,3 +271,9 @@ Deeper sector-factor calibration, VaR and ES attribution decomposition, and rich
 ## License
 
 MIT License. See [LICENSE](LICENSE).
+
+## References
+
+- Gupton, G.M., Finger, C.C., Bhatia, M. *CreditMetrics — Technical Document*. RiskMetrics Group / MSCI, 2007 (originally published by J.P. Morgan, 1997). <https://www.msci.com/documents/10199/93396227-d449-4229-9143-24a94dab122f>
+
+The migration framework, latent threshold mapping, and asset correlation structure follow the standard CreditMetrics methodology. The sector-loading multi-factor extension, regime mixture, and spread-shock valuation overlay are this repository's additions to that baseline.

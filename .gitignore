@@ -9,3 +9,6 @@ __pycache__/
 outputs/
 scripts/git_push.py
 scripts/run_and_push.py
+.Rhistory
+.RData
+.Ruserdata
