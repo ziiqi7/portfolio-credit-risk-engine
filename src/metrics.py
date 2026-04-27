@@ -65,7 +65,7 @@ def summarize_distribution(scenario_results: pd.DataFrame) -> dict[str, float]:
         "downgrade_count",
         pd.Series(np.zeros(len(scenario_results), dtype=float)),
     ).to_numpy(dtype=float)
-    tail_cutoff = float(np.quantile(losses, 0.99))
+    tail_cutoff = calculate_var(losses, 0.99)
     tail_mask = losses >= tail_cutoff
     quantile_summary = distribution_quantiles(losses, [0.01, 0.05, 0.50, 0.95, 0.99])
     return {
