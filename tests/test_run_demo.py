@@ -1,6 +1,9 @@
 from pathlib import Path
 
 from scripts.run_demo import render_demo_report, run_demo_simulation
+from src.simulation import simulate_portfolio
+from src.synthetic_data import generate_synthetic_portfolio
+from src.transitions import load_demo_transition_matrices
 
 
 def test_run_demo_helper_exports_plot_and_scenarios(tmp_path: Path) -> None:
@@ -21,3 +24,16 @@ def test_run_demo_helper_exports_plot_and_scenarios(tmp_path: Path) -> None:
     assert artifacts.scenario_export_path.exists()
     assert "Simulation mode: independent" in report
     assert "Stress mode: none" in report
+
+
+def test_same_seed_produces_identical_results() -> None:
+    """Reproducibility: identical seeds must yield identical scenario results."""
+
+    portfolio = generate_synthetic_portfolio(num_exposures=30, seed=7)
+    matrices = load_demo_transition_matrices()
+
+    result_a = simulate_portfolio(portfolio, matrices, n_scenarios=200, seed=42)
+    result_b = simulate_portfolio(portfolio, matrices, n_scenarios=200, seed=42)
+
+    pd_assert = result_a.scenario_results.equals(result_b.scenario_results)
+    assert pd_assert

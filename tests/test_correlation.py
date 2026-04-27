@@ -46,6 +46,46 @@ def test_asset_correlation_varies_by_issuer_type_and_rating() -> None:
     assert asset_correlation_for_exposure(speculative_grade, spec) >= spec.issuer_type_base_correlations[speculative_grade.issuer_type]
 
 
+def test_one_factor_collapses_to_near_independent_at_zero_correlation() -> None:
+    """At asset_correlation ≈ 0 the one-factor sampler should produce
+    transitions whose marginal default rates closely match the input
+    transition matrix, since the systematic factor's contribution is
+    bounded by min_correlation."""
+
+    portfolio = generate_synthetic_portfolio(num_exposures=80, seed=21)
+    matrices = load_demo_transition_matrices()
+
+    spec = LatentFactorSpec(
+        issuer_type_base_correlations={
+            "sovereign": 0.03,
+            "supranational": 0.03,
+            "agency": 0.03,
+            "bank": 0.03,
+            "insurance": 0.03,
+            "corporate": 0.03,
+        },
+        rating_adjustments={r: 0.0 for r in ["AAA", "AA", "A", "BBB", "BB", "B", "CCC"]},
+        min_correlation=0.03,
+        max_correlation=0.05,
+    )
+
+    migrated = simulate_one_factor_transitions(
+        portfolio, matrices, n_scenarios=4000, seed=11, factor_spec=spec
+    )
+
+    for exposure_class in ("corporate", "fi", "sovereign"):
+        class_indices = [i for i, exposure in enumerate(portfolio) if exposure.exposure_class == exposure_class]
+        if not class_indices:
+            continue
+        realised = (migrated[:, class_indices] == "D").mean()
+        starting_default_probs = []
+        for index in class_indices:
+            rating = portfolio[index].rating
+            starting_default_probs.append(matrices[exposure_class].matrix.loc[rating, "D"])
+        expected = float(np.mean(starting_default_probs))
+        assert abs(realised - expected) < 0.005
+
+
 def test_supported_sectors_cover_generated_portfolio() -> None:
     portfolio = generate_synthetic_portfolio(num_exposures=120, seed=8)
     generated_sectors = {exposure.sector for exposure in portfolio}
